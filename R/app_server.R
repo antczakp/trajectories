@@ -6,4 +6,7 @@
 #' @noRd
 app_server <- function(input, output, session) {
   # Your application server logic
+  output$trajectory <- renderPlot({
+    plot(1:10)
+  })
 }
