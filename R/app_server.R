@@ -3,6 +3,7 @@
 #' @param input,output,session Internal parameters for {shiny}.
 #'     DO NOT REMOVE.
 #' @import shiny
+#' @import dplyr
 #' @noRd
 app_server <- function(input, output, session) {
   expr_data <- load_expression_data()
@@ -15,11 +16,11 @@ app_server <- function(input, output, session) {
 
   shiny::updateSelectInput(session, "group_a",
     choices  = types_avail,
-    selected = types_avail[1]
+    selected = "Normal Diet ctrl"
   )
   shiny::updateSelectInput(session, "group_b",
     choices  = types_avail,
-    selected = types_avail[min(2L, length(types_avail))]
+    selected = "Normal Diet klf"
   )
   shiny::updateSelectizeInput(session, "sel_days",
     choices  = days_avail,
@@ -28,7 +29,7 @@ app_server <- function(input, output, session) {
   )
   shiny::updateSelectInput(session, "sel_organ",
     choices  = organs_avail,
-    selected = organs_avail[1]
+    selected = "Gut"
   )
 
   # ---- Reactive: filter expression data by current selector state ----------
@@ -38,11 +39,12 @@ app_server <- function(input, output, session) {
     selected_types <- unique(c(input$group_a, input$group_b))
     selected_days  <- as.numeric(input$sel_days)
 
-    expr_data[
-      expr_data$type   %in% selected_types  &
-      expr_data$day    %in% selected_days   &
-      expr_data$organ  ==   input$sel_organ,
-    ]
+    ann_sel <- annot %>% filter(
+      type %in% selected_types,
+      day %in% selected_days,
+      organ == input$sel_organ
+    )
+    data.frame(expr_data[,c("id",ann_sel$ID)])
   })
 
   # ---- Reactive: parse submitted gene list ---------------------------------
@@ -80,7 +82,7 @@ app_server <- function(input, output, session) {
         "No data available for the current filter selection."
       )
     )
-    compute_median_expression(data, genes)
+    compute_median_expression(data, genes, annot)
   })
 
   # ---- Output: match summary panel -----------------------------------------
@@ -119,7 +121,8 @@ app_server <- function(input, output, session) {
   # ---- Output: plotly trajectory -------------------------------------------
   output$trajectory_plot <- plotly::renderPlotly({
     df    <- median_data_r()
-    genes <- sort(unique(df$gene))
+    .df <<- df
+    genes <- sort(unique(df$id))
     types <- sort(unique(df$type))
     colors <- gene_colors(genes)
 
@@ -133,7 +136,7 @@ app_server <- function(input, output, session) {
 
     for (g in genes) {
       for (tp in types) {
-        sub <- df[df$gene == g & df$type == tp, ]
+        sub <- df[df$id == g & df$type == tp, ]
         if (nrow(sub) == 0L) next
 
         trace_name <- if (length(types) > 1L) {

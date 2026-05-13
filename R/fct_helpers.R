@@ -7,7 +7,7 @@
 #'
 #' @noRd
 load_expression_data <- function() {
-  data_path <- app_sys("extdata", "expression_data.rds")
+  data_path <- app_sys("extdata", "Dataset.rds")
   if (file.exists(data_path)) {
     readRDS(data_path)
   } else {
@@ -25,7 +25,7 @@ load_expression_data <- function() {
 #'
 #' @noRd
 load_annotation_data <- function() {
-  annot_path <- app_sys("extdata", "annot.rds")
+  annot_path <- app_sys("extdata", "Annotation.rds")
   if (file.exists(annot_path)) {
     readRDS(annot_path)
   } else {
@@ -132,13 +132,16 @@ parse_gene_input <- function(file_path = NULL, text_input = "") {
 #'
 #' @param data  Long-format expression data frame.
 #' @param gene_list Character vector of gene names to look up.
+#' @import gprofiler2
 #'
 #' @return A list with elements \code{matched} and \code{unmatched}.
 #' @noRd
 match_genes <- function(data, gene_list) {
-  available   <- unique(data$gene)
+  available   <- unique(data$id)
+  matched <- gprofiler2::gconvert(gene_list,organism="dmelanogaster")
+  query <- unique(matched$target)
   upper_avail <- toupper(available)
-  upper_query <- toupper(trimws(gene_list))
+  upper_query <- toupper(trimws(query))
 
   matched   <- available[upper_avail %in% upper_query]
   unmatched <- gene_list[!upper_query %in% upper_avail]
@@ -151,16 +154,20 @@ match_genes <- function(data, gene_list) {
 #' @param data  Long-format expression data frame (pre-filtered to the desired
 #'   types, days, and organ).
 #' @param genes Character vector of gene names (already matched).
+#' @import dplyr
+#' @import tidyr
 #'
 #' @return Data frame with columns gene, type, day, median_expression.
 #' @noRd
-compute_median_expression <- function(data, genes) {
-  df <- data[data$gene %in% genes, ]
-  dplyr::summarise(
-    dplyr::group_by(df, gene, type, day),
-    median_expression = stats::median(expression, na.rm = TRUE),
-    .groups = "drop"
-  )
+compute_median_expression <- function(data, genes, annot) {
+  df <- data[data$id %in% genes, ]
+  df %>%
+    tidyr::pivot_longer(-id,names_to="ID",values_to="expression") %>%
+    left_join(annot) %>%
+    group_by(id,type,day) %>%
+    summarise(
+      median_expression = stats::median(expression, na.rm=T)
+    )
 }
 
 #' Pivot median data to a wide table suitable for DT display
@@ -172,7 +179,7 @@ compute_median_expression <- function(data, genes) {
 build_expression_table <- function(median_data) {
   days  <- sort(unique(median_data$day))
   types <- sort(unique(median_data$type))
-  genes <- sort(unique(median_data$gene))
+  genes <- sort(unique(median_data$id))
 
   result <- data.frame(Gene = genes, stringsAsFactors = FALSE)
 
@@ -181,7 +188,7 @@ build_expression_table <- function(median_data) {
       col_name <- paste0(tp, " – Day ", d)
       vals <- vapply(genes, function(g) {
         v <- median_data$median_expression[
-          median_data$gene == g &
+          median_data$id == g &
           median_data$type  == tp &
           median_data$day   == d
         ]
