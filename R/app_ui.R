@@ -8,53 +8,72 @@
 #' @noRd
 app_ui <- function(request) {
   tagList(
-    # Leave this function for adding external resources
     golem_add_external_resources(),
-    # Your application UI logic
-    # fluidPage(
-    #   golem::golem_welcome_page() # Remove this line to start building your UI
-    # )
-    page_fillable(
-      id = "page",
-      lang = "en",
-      fillable_mobile = F,
-      #autoWaiter(color="#FFFFFF",html=bs5_spinner()),
-      #waiterPreloader(color = "#FFF", html=bs5_spinner()),
-      navset_card_tab(
-        title = "Main Page",
-        id = "nav",
-        sidebar = sidebar(
-          width = 320,
-          padding = 0,
-          id = "sidebar",
-          open = T,
-          title = tags$h1("Selectors", style = "margin: 11px 10px 0px 10px;", class="sidebar-title"),
-          accordion(
-              class="accordion-flush",
-              #width="100"%,
-              accordion_panel(
-                #width="100"%,
-                "Drosophila IDs",
-                selectizeInput(
-                  inputId = "selector",
-                  label = "Select Gene/Protein",
-                  choices = NULL,
-                  selected = NULL,
-                  multiple = T
-                )
-              )
+    bslib::page_sidebar(
+      title = "D. melanogaster Gene Trajectory Viewer",
+      theme = bslib::bs_theme(bootswatch = "flatly", version = 5),
+
+      # ---- Sidebar --------------------------------------------------------
+      sidebar = bslib::sidebar(
+        width = 320,
+        open  = TRUE,
+
+        bslib::card(
+          full_screen = FALSE,
+          bslib::card_header(shiny::icon("dna"), " Gene / Protein Input"),
+          bslib::card_body(
+            shiny::fileInput(
+              "gene_file",
+              "Upload a gene list (CSV or plain-text, one per line):",
+              accept      = c(".csv", ".txt", "text/plain", "text/csv"),
+              buttonLabel = shiny::icon("folder-open"),
+              placeholder = "No file selected"
+            ),
+            tags$div(
+              style = "text-align:center; color:#888; margin: 4px 0 8px;",
+              tags$em("— or type genes below —")
+            ),
+            shiny::textAreaInput(
+              "gene_text",
+              label       = NULL,
+              placeholder = "Act5C\nGAPDH1\nHsp70Aa\n...",
+              rows        = 9
+            ),
+            shiny::actionButton(
+              "submit_genes",
+              "Load Genes",
+              icon  = shiny::icon("magnifying-glass"),
+              class = "btn-primary w-100 mt-1"
             )
+          )
         ),
-        nav_panel(
-          "Trajectory",
-          layout_columns(
-            col_widths = 12,
-            row_heights = "75vh",
-            card(
-              class="border-0",
-              tags$h4("Selected Protein Trajectory"),
-              plotOutput("trajectory")
-            )
+
+        bslib::card(
+          full_screen = FALSE,
+          bslib::card_header(shiny::icon("circle-info"), " Match Summary"),
+          bslib::card_body(
+            shiny::uiOutput("match_summary")
+          )
+        )
+      ),
+
+      # ---- Main panel -----------------------------------------------------
+      bslib::navset_card_underline(
+        title = NULL,
+
+        bslib::nav_panel(
+          title = tagList(shiny::icon("chart-line"), " Trajectory Plot"),
+          plotly::plotlyOutput("trajectory_plot", height = "560px")
+        ),
+
+        bslib::nav_panel(
+          title = tagList(shiny::icon("table"), " Expression Table"),
+          bslib::card_body(
+            tags$p(
+              class = "text-muted small mb-2",
+              "Median expression per gene × group across all timepoints."
+            ),
+            DT::dataTableOutput("expression_table")
           )
         )
       )
@@ -64,17 +83,11 @@ app_ui <- function(request) {
 
 #' Add external Resources to the Application
 #'
-#' This function is internally used to add external
-#' resources inside the Shiny application.
-#'
 #' @import shiny
 #' @importFrom golem add_resource_path activate_js favicon bundle_resources
 #' @noRd
 golem_add_external_resources <- function() {
-  add_resource_path(
-    "www",
-    app_sys("app/www")
-  )
+  add_resource_path("www", app_sys("app/www"))
 
   tags$head(
     favicon(),
@@ -82,7 +95,5 @@ golem_add_external_resources <- function() {
       path = app_sys("app/www"),
       app_title = "Visualising Trajectories in D. melanogaster"
     )
-    # Add here other external resources
-    # for example, you can add shinyalert::useShinyalert()
   )
 }

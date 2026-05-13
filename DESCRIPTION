@@ -1,17 +1,25 @@
 Package: Shiny
-Title: An Amazing Shiny App
+Title: Visualising Trajectories in D. melanogaster
 Version: 0.0.0.9000
-Authors@R: 
-    person(given = "firstname",
-           family = "lastname",
+Authors@R:
+    person(given = "Philipp",
+           family = "Antczak",
            role = c("aut", "cre"),
-           email = "your@email.com")
-Description: What the package does (one paragraph).
-License: What license is it under?
-Imports: 
-    config,
-    golem,
-    shiny
+           email = "pantczak@uni-koeln.de")
+Description: Utilises datasets of days 1, 5, 14, 30, and 37 to derive
+    trajectories for genes/proteins of interest. Provides an interactive
+    sidebar for gene input, a plotly-based trajectory plot, and a median
+    expression summary table.
+License: MIT + file LICENSE
+Imports:
+    bslib (>= 0.6.0),
+    config (>= 0.3.1),
+    DT (>= 0.20),
+    dplyr (>= 1.1.0),
+    golem (>= 0.4.0),
+    plotly (>= 4.10.0),
+    shiny (>= 1.7.0),
+    tidyr (>= 1.3.0)
 Encoding: UTF-8
-LazyData: true
+LazyData: false
 RoxygenNote: 7.3.3
