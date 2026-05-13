@@ -3,6 +3,8 @@
 #' @param request Internal parameter for `{shiny}`.
 #'     DO NOT REMOVE.
 #' @import shiny
+#' @import bslib
+#' @import waiter
 #' @noRd
 app_ui <- function(request) {
   tagList(
@@ -146,8 +148,8 @@ golem_add_external_resources <- function() {
   tags$head(
     favicon(),
     bundle_resources(
-      path      = app_sys("app/www"),
-      app_title = "Trajectories"
+      path = app_sys("app/www"),
+      app_title = "Visualising Trajectories in D. melanogaster"
     )
   )
 }

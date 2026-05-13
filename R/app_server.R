@@ -5,8 +5,6 @@
 #' @import shiny
 #' @noRd
 app_server <- function(input, output, session) {
-
-  # Load data once per session -----------------------------------------------
   expr_data <- load_expression_data()
   annot     <- load_annotation_data()
 
