@@ -13,9 +13,10 @@ app_ui <- function(request) {
 
       # ---- Sidebar --------------------------------------------------------
       sidebar = bslib::sidebar(
-        width = 320,
+        width = 330,
         open  = TRUE,
 
+        # Gene / protein input ----------------------------------------------
         bslib::card(
           full_screen = FALSE,
           bslib::card_header(shiny::icon("dna"), " Gene / Protein Input"),
@@ -35,7 +36,7 @@ app_ui <- function(request) {
               "gene_text",
               label       = NULL,
               placeholder = "Act5C\nGAPDH1\nHsp70Aa\n...",
-              rows        = 9
+              rows        = 7
             ),
             shiny::actionButton(
               "submit_genes",
@@ -46,6 +47,61 @@ app_ui <- function(request) {
           )
         ),
 
+        # Filters -----------------------------------------------------------
+        bslib::card(
+          full_screen = FALSE,
+          bslib::card_header(shiny::icon("sliders"), " Filters"),
+          bslib::card_body(
+            # Group comparison (two side-by-side selectors)
+            tags$label(
+              class = "form-label fw-semibold mb-1",
+              "Group comparison:"
+            ),
+            bslib::layout_columns(
+              col_widths = c(6, 6),
+              shiny::selectInput(
+                "group_a",
+                label = tags$span(
+                  class = "text-primary fw-semibold", "Group A"
+                ),
+                choices  = NULL,
+                selected = NULL
+              ),
+              shiny::selectInput(
+                "group_b",
+                label = tags$span(
+                  class = "text-danger fw-semibold", "Group B"
+                ),
+                choices  = NULL,
+                selected = NULL
+              )
+            ),
+
+            # Day selector (multiple)
+            shiny::selectizeInput(
+              "sel_days",
+              label    = tags$span(
+                class = "fw-semibold", shiny::icon("calendar-days"), " Days:"
+              ),
+              choices  = NULL,
+              selected = NULL,
+              multiple = TRUE,
+              options  = list(plugins = list("remove_button"))
+            ),
+
+            # Organ selector (single)
+            shiny::selectInput(
+              "sel_organ",
+              label   = tags$span(
+                class = "fw-semibold", shiny::icon("microscope"), " Organ / Tissue:"
+              ),
+              choices  = NULL,
+              selected = NULL
+            )
+          )
+        ),
+
+        # Match summary -----------------------------------------------------
         bslib::card(
           full_screen = FALSE,
           bslib::card_header(shiny::icon("circle-info"), " Match Summary"),
@@ -69,7 +125,7 @@ app_ui <- function(request) {
           bslib::card_body(
             tags$p(
               class = "text-muted small mb-2",
-              "Median expression per gene × group across all timepoints."
+              "Median expression per gene × group across selected timepoints."
             ),
             DT::dataTableOutput("expression_table")
           )

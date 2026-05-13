@@ -1,7 +1,10 @@
-# Run this script once to persist the synthetic demo dataset so it is
-# bundled with the installed package.  Requires the package to be loaded
-# (devtools::load_all()) so that generate_sample_data() is available.
+# Run once (after devtools::load_all()) to persist synthetic demo data.
 
-sample_data <- Shiny:::generate_sample_data()
-saveRDS(sample_data, "inst/extdata/expression_data.rds")
-message("Saved inst/extdata/expression_data.rds (", nrow(sample_data), " rows)")
+sample_expr  <- Shiny:::generate_sample_data()
+sample_annot <- Shiny:::generate_sample_annotation()
+
+saveRDS(sample_expr,  "inst/extdata/expression_data.rds")
+saveRDS(sample_annot, "inst/extdata/annot.rds")
+
+message("Saved expression_data.rds (", nrow(sample_expr), " rows)")
+message("Saved annot.rds (", nrow(sample_annot), " rows)")
