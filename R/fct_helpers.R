@@ -3,7 +3,7 @@
 #' Reads inst/extdata/expression_data.rds when present; falls back to a
 #' synthetic demo dataset so the app runs out of the box.
 #'
-#' Expected format (long): columns gene, group, day, expression.
+#' Expected format (long): columns gene, type, day, organ, expression.
 #'
 #' @noRd
 load_expression_data <- function() {
@@ -15,26 +15,46 @@ load_expression_data <- function() {
   }
 }
 
+#' Load annotation file
+#'
+#' Reads inst/extdata/annot.rds when present; falls back to a synthetic
+#' annotation derived from the demo expression data.
+#'
+#' Expected format: columns type, day, organ (one row per sample or per
+#' unique combination).
+#'
+#' @noRd
+load_annotation_data <- function() {
+  annot_path <- app_sys("extdata", "annot.rds")
+  if (file.exists(annot_path)) {
+    readRDS(annot_path)
+  } else {
+    generate_sample_annotation()
+  }
+}
+
 #' Generate synthetic expression data for demo / development
 #' @noRd
 generate_sample_data <- function() {
   set.seed(42)
 
   genes <- c(
-    "Act5C", "GAPDH1", "Hsp70Aa", "Akt1", "InR",
-    "foxo",  "S6k",    "thor",    "Sir2", "Sod2",
-    "Cat",   "Jafrac1","CG9040",  "CG5931","CG8517",
-    "eIF4E", "raptor", "Atg1",    "Atg8a", "Ref(2)P",
-    "p62",   "dTOR",   "Rheb",    "TSC1",  "TSC2"
+    "Act5C", "GAPDH1",  "Hsp70Aa", "Akt1",    "InR",
+    "foxo",  "S6k",     "thor",    "Sir2",    "Sod2",
+    "Cat",   "Jafrac1", "CG9040",  "CG5931",  "CG8517",
+    "eIF4E", "raptor",  "Atg1",    "Atg8a",   "Ref(2)P",
+    "p62",   "dTOR",    "Rheb",    "TSC1",    "TSC2"
   )
-  groups   <- c("male", "female")
-  days     <- c(1, 5, 14, 30, 37)
-  n_reps   <- 6
+  types  <- c("control", "mutant_A", "mutant_B")
+  days   <- c(1, 5, 14, 30, 37)
+  organs <- c("head", "gut", "body")
+  n_reps <- 4
 
   grid <- expand.grid(
     gene      = genes,
-    group     = groups,
+    type      = types,
     day       = days,
+    organ     = organs,
     replicate = seq_len(n_reps),
     stringsAsFactors = FALSE
   )
@@ -44,12 +64,32 @@ generate_sample_data <- function() {
   grid$expression <- vapply(seq_len(nrow(grid)), function(i) {
     base         <- baselines[grid$gene[i]]
     trend        <- grid$day[i] * stats::runif(1, -0.05, 0.10)
-    group_effect <- if (grid$group[i] == "female") stats::runif(1, -0.5, 0.5) else 0
-    noise        <- stats::rnorm(1, 0, 0.8)
-    max(0, base + trend + group_effect + noise)
+    type_effect  <- switch(grid$type[i],
+      mutant_A = stats::runif(1,  0.3, 1.0),
+      mutant_B = stats::runif(1, -1.0, 0.0),
+      0
+    )
+    organ_effect <- switch(grid$organ[i],
+      head = stats::runif(1, 0.0, 0.5),
+      gut  = stats::runif(1, -0.5, 0.0),
+      0
+    )
+    noise <- stats::rnorm(1, 0, 0.8)
+    max(0, base + trend + type_effect + organ_effect + noise)
   }, numeric(1))
 
-  grid[, c("gene", "group", "day", "expression")]
+  grid[, c("gene", "type", "day", "organ", "expression")]
+}
+
+#' Generate synthetic annotation for demo / development
+#' @noRd
+generate_sample_annotation <- function() {
+  expand.grid(
+    type   = c("control", "mutant_A", "mutant_B"),
+    day    = c(1, 5, 14, 30, 37),
+    organ  = c("head", "gut", "body"),
+    stringsAsFactors = FALSE
+  )
 }
 
 #' Parse gene/protein names from a file upload and/or a text area
@@ -96,7 +136,7 @@ parse_gene_input <- function(file_path = NULL, text_input = "") {
 #' @return A list with elements \code{matched} and \code{unmatched}.
 #' @noRd
 match_genes <- function(data, gene_list) {
-  available  <- unique(data$gene)
+  available   <- unique(data$gene)
   upper_avail <- toupper(available)
   upper_query <- toupper(trimws(gene_list))
 
@@ -106,17 +146,18 @@ match_genes <- function(data, gene_list) {
   list(matched = matched, unmatched = unmatched)
 }
 
-#' Compute per-gene median expression across groups and timepoints
+#' Compute per-gene median expression
 #'
-#' @param data  Long-format expression data frame.
+#' @param data  Long-format expression data frame (pre-filtered to the desired
+#'   types, days, and organ).
 #' @param genes Character vector of gene names (already matched).
 #'
-#' @return Data frame with columns gene, group, day, median_expression.
+#' @return Data frame with columns gene, type, day, median_expression.
 #' @noRd
 compute_median_expression <- function(data, genes) {
   df <- data[data$gene %in% genes, ]
   dplyr::summarise(
-    dplyr::group_by(df, gene, group, day),
+    dplyr::group_by(df, gene, type, day),
     median_expression = stats::median(expression, na.rm = TRUE),
     .groups = "drop"
   )
@@ -124,25 +165,25 @@ compute_median_expression <- function(data, genes) {
 
 #' Pivot median data to a wide table suitable for DT display
 #'
-#' Rows = gene; columns = \code{<group> Day <day>}.
+#' Rows = gene; columns = \code{<type> – Day <day>}.
 #'
 #' @param median_data Output of \code{compute_median_expression()}.
 #' @noRd
 build_expression_table <- function(median_data) {
-  days   <- sort(unique(median_data$day))
-  groups <- sort(unique(median_data$group))
-  genes  <- sort(unique(median_data$gene))
+  days  <- sort(unique(median_data$day))
+  types <- sort(unique(median_data$type))
+  genes <- sort(unique(median_data$gene))
 
   result <- data.frame(Gene = genes, stringsAsFactors = FALSE)
 
-  for (grp in groups) {
+  for (tp in types) {
     for (d in days) {
-      col_name <- paste0(grp, " – Day ", d)
+      col_name <- paste0(tp, " – Day ", d)
       vals <- vapply(genes, function(g) {
         v <- median_data$median_expression[
           median_data$gene == g &
-          median_data$group == grp &
-          median_data$day == d
+          median_data$type  == tp &
+          median_data$day   == d
         ]
         if (length(v) == 0L) NA_real_ else round(v[1], 3)
       }, numeric(1))
