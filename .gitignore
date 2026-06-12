@@ -1,2 +1,8 @@
 .Rproj.user
 .positai
+.Rhistory
+.RData
+.httr-oauth
+.DS_Store
+.quarto
+.claude
