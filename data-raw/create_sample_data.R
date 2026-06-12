@@ -1,7 +1,7 @@
 # Run once (after devtools::load_all()) to persist synthetic demo data.
 
-sample_expr  <- Shiny:::generate_sample_data()
-sample_annot <- Shiny:::generate_sample_annotation()
+sample_expr  <- shiny:::generate_sample_data()
+sample_annot <- shiny:::generate_sample_annotation()
 
 saveRDS(sample_expr,  "inst/extdata/expression_data.rds")
 saveRDS(sample_annot, "inst/extdata/annot.rds")

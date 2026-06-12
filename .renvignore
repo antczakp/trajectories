@@ -1,0 +1,6 @@
+# Directories renv should NOT scan for dependencies.
+# .claude holds git worktree copies of the project (duplicate DESCRIPTION/R
+# files) which otherwise cause duplicate package records (e.g. shiny.1) in
+# the Posit Connect manifest.
+.claude/
+deploy/
