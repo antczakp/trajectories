@@ -2,6 +2,19 @@
 # To deploy, run: rsconnect::deployApp()
 # Or use the blue button on top of this file
 
+library(golem)
+library(bslib)
+library(config)
+library(dplyr)
+library(DT)
+library(gprofiler2)
+library(grDevices)
+library(plotly)
+library(shiny)
+library(stats)
+library(tidyr)
+library(Waiter)
+
 pkgload::load_all(export_all = FALSE,helpers = FALSE,attach_testthat = FALSE)
 options( "golem.app.prod" = TRUE)
 source("R/run_app.R")
