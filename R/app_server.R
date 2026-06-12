@@ -45,11 +45,13 @@ app_server <- function(input, output, session) {
       organ == input$sel_organ
     )
 
+    .as <<- ann_sel
+
     shiny::validate(
       shiny::need(nrow(ann_sel) > 0, "No Samples selected - please adjust the filters.")
     )
 
-    data.frame(expr_data[,c("id",ann_sel$ID)])
+    data.frame(expr_data[,intersect(c("id",ann_sel$ID),colnames(expr_data))])
   })
 
   # ---- Reactive: parse submitted gene list ---------------------------------
