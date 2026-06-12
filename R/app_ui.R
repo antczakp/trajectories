@@ -163,7 +163,7 @@ golem_add_external_resources <- function() {
 
   tags$head(
     golem::favicon(),
-    bundle_resources(
+    golem::bundle_resources(
       path = app_sys("app/www"),
       app_title = "Visualising Trajectories in D. melanogaster"
     )
