@@ -3,7 +3,8 @@ Title: Visualising Trajectories in D. melanogaster
 Version: 0.0.0.9000
 Authors@R:
     person("Philipp", "Antczak", , "pantczak@uni-koeln.de", role = c("aut", "cre"))
-Description: Utilises datasets of days 1, 5, 14, 30, and 37 to derive trajectories for genes of interest
+Description: Utilises datasets of days 1, 5, 14, 30, and 37 to derive
+    trajectories for genes of interest
 License: MIT + file LICENSE
 Imports:
     bslib (>= 0.6.0),
@@ -21,8 +22,12 @@ Imports:
     utils,
     waiter
 Suggests: 
+    knitr,
+    rmarkdown,
     spelling,
     testthat (>= 3.0.0)
+VignetteBuilder: 
+    knitr
 Config/testthat/edition: 3
 Encoding: UTF-8
 Language: en-US

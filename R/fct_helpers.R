@@ -229,7 +229,7 @@ compute_stats_expression <- function(data, genes, annot, names) {
 
 #' Pivot median data to a wide table suitable for DT display
 #'
-#' Rows = gene; columns = \code{<type> – Day <day>}.
+#' Rows = gene; columns = \code{<type> - Day <day>}.
 #'
 #' @param median_data Output of \code{compute_median_expression()}.
 #' @param value_col Name of the column to tabulate (e.g. "median_expression"
@@ -244,7 +244,7 @@ build_expression_table <- function(median_data, value_col = "median_expression")
 
   for (tp in types) {
     for (d in days) {
-      col_name <- paste0(tp, " – Day ", d)
+      col_name <- paste0(tp, " - Day ", d)
       vals <- vapply(genes, function(g) {
         v <- median_data[[value_col]][
           median_data$id == g &

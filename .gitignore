@@ -6,3 +6,6 @@
 .DS_Store
 .quarto
 .claude
+inst/doc
+/doc/
+/Meta/

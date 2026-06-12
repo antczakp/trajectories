@@ -32,7 +32,7 @@ app_ui <- function(request) {
             ),
             tags$div(
               style = "text-align:center; color:#888; margin: 4px 0 8px;",
-              tags$em("— or type genes below —")
+              tags$em("- or type genes below -")
             ),
             shiny::textAreaInput(
               "gene_text",
@@ -143,7 +143,7 @@ app_ui <- function(request) {
           bslib::card_body(
             tags$p(
               class = "text-muted small mb-2",
-              "Central tendency (median or mean) per gene × group across selected timepoints."
+              "Central tendency (median or mean) per gene x group across selected timepoints."
             ),
             DT::dataTableOutput("expression_table")
           )

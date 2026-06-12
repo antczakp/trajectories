@@ -172,7 +172,7 @@ app_server <- function(input, output, session) {
         if (nrow(sub) == 0L) next
 
         trace_name <- if (length(types) > 1L) {
-          paste0(g, " – ", tp)
+          paste0(g, " - ", tp)
         } else {
           g
         }
