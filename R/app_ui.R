@@ -99,6 +99,17 @@ app_ui <- function(request) {
               ),
               choices  = NULL,
               selected = NULL
+            ),
+
+            # Central tendency (median vs mean)
+            shiny::radioButtons(
+              "central_stat",
+              label   = tags$span(
+                class = "fw-semibold", shiny::icon("chart-simple"), " Central tendency:"
+              ),
+              choices  = c("Median" = "median", "Mean" = "mean"),
+              selected = "median",
+              inline   = TRUE
             )
           )
         ),
@@ -119,7 +130,12 @@ app_ui <- function(request) {
 
         bslib::nav_panel(
           title = tagList(shiny::icon("chart-line"), " Trajectory Plot"),
-          plotly::plotlyOutput("trajectory_plot", height = "560px")
+          plotly::plotlyOutput("trajectory_plot", height = "70vh")
+        ),
+
+        bslib::nav_panel(
+          title = tagList(shiny::icon("chart-line"), " Trajectory Plot by Statistic"),
+          plotly::plotlyOutput("trajectory_plot_stat", height = "70vh")
         ),
 
         bslib::nav_panel(
@@ -127,7 +143,7 @@ app_ui <- function(request) {
           bslib::card_body(
             tags$p(
               class = "text-muted small mb-2",
-              "Median expression per gene × group across selected timepoints."
+              "Central tendency (median or mean) per gene × group across selected timepoints."
             ),
             DT::dataTableOutput("expression_table")
           )

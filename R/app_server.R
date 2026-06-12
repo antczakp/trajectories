@@ -44,6 +44,11 @@ app_server <- function(input, output, session) {
       day %in% selected_days,
       organ == input$sel_organ
     )
+
+    shiny::validate(
+      shiny::need(nrow(ann_sel) > 0, "No Samples selected - please adjust the filters.")
+    )
+
     data.frame(expr_data[,c("id",ann_sel$ID)])
   })
 
@@ -69,6 +74,7 @@ app_server <- function(input, output, session) {
   # ---- Reactive: compute medians on filtered + matched data ----------------
   median_data_r <- shiny::reactive({
     genes <- matched_r()$matched
+    nms <- matched_r()$names
     shiny::validate(
       shiny::need(
         length(genes) > 0,
@@ -82,7 +88,27 @@ app_server <- function(input, output, session) {
         "No data available for the current filter selection."
       )
     )
-    compute_median_expression(data, genes, annot)
+    compute_median_expression(data, genes, annot, nms)
+  })
+
+  # ---- Reactive: compute stats on filtered + matched data ----------------
+  stat_data_r <- shiny::reactive({
+    genes <- matched_r()$matched
+    nms <- matched_r()$names
+    shiny::validate(
+      shiny::need(
+        length(genes) > 0,
+        "None of the supplied names were found in the dataset."
+      )
+    )
+    data <- filtered_data_r()
+    shiny::validate(
+      shiny::need(
+        nrow(data) > 0,
+        "No data available for the current filter selection."
+      )
+    )
+    compute_stats_expression(data, genes, annot, nms)
   })
 
   # ---- Output: match summary panel -----------------------------------------
@@ -126,6 +152,12 @@ app_server <- function(input, output, session) {
     types <- sort(unique(df$type))
     colors <- gene_colors(genes)
 
+    # Central tendency selected in the sidebar (median vs mean)
+    stat_choice <- if (identical(input$central_stat, "mean")) "mean" else "median"
+    stat_col    <- paste0(stat_choice, "_expression")
+    stat_label  <- if (stat_choice == "mean") "Mean of standardised" else "Median of standardised"
+    df$value    <- df[[stat_col]]
+
     line_dashes <- c("solid", "dash", "dot", "dashdot")
     type_dash   <- stats::setNames(
       line_dashes[seq_along(types)],
@@ -145,11 +177,33 @@ app_server <- function(input, output, session) {
           g
         }
 
+        # Error bars: SD (symmetric) for the mean, IQR whiskers for the median
+        err_y <- if (stat_choice == "median") {
+          list(
+            type       = "data",
+            symmetric  = FALSE,
+            array      = sub$q3_expression - sub$value,
+            arrayminus = sub$value - sub$q1_expression,
+            color      = colors[g],
+            thickness  = 1.5,
+            width      = 4
+          )
+        } else {
+          list(
+            type      = "data",
+            array     = sub$sd_expression,
+            color     = colors[g],
+            thickness = 1.5,
+            width     = 4
+          )
+        }
+
         p <- plotly::add_trace(
           p,
           data        = sub,
           x           = ~day,
-          y           = ~median_expression,
+          y           = ~value,
+          customdata  = ~datatype,
           type        = "scatter",
           mode        = "lines+markers",
           name        = trace_name,
@@ -164,10 +218,12 @@ app_server <- function(input, output, session) {
             size  = 7,
             line  = list(color = "white", width = 1)
           ),
+          error_y = err_y,
           hovertemplate = paste0(
             "<b>", g, "</b> (", tp, ")<br>",
             "Day %{x}<br>",
-            "Median: %{y:.3f}<extra></extra>"
+            stat_label, ": %{y:.3f}<br>",
+            "Data type: %{customdata}<extra></extra>"
           )
         )
       }
@@ -181,7 +237,77 @@ app_server <- function(input, output, session) {
         gridcolor = "#e8e8e8"
       ),
       yaxis = list(
-        title     = "Median Expression",
+        title     = paste0(stat_label, " Expression"),
+        gridcolor = "#e8e8e8"
+      ),
+      legend = list(
+        title         = list(text = "<b>Gene (click to toggle)</b>"),
+        tracegroupgap = 6,
+        bgcolor       = "rgba(255,255,255,0.85)"
+      ),
+      hovermode     = "x unified",
+      plot_bgcolor  = "#fafafa",
+      paper_bgcolor = "#ffffff"
+    )
+  })
+
+  # ---- Output: plotly trajectory statistics----------------------------------
+  output$trajectory_plot_stat <- plotly::renderPlotly({
+    df    <- stat_data_r()
+    .df <<- df
+    genes <- sort(unique(df$id))
+    colors <- gene_colors(genes)
+
+    p <- plotly::plot_ly()
+
+    for (g in genes) {
+        sub <- df[df$id == g, ]
+        if (nrow(sub) == 0L) next
+        trace_name <- g
+
+        # Pack p-value + datatype into a per-point array for the hover
+        sub$cd <- lapply(seq_len(nrow(sub)), function(i) {
+          list(sub$p_value[i], sub$datatype[i])
+        })
+
+        p <- plotly::add_trace(
+          p,
+          data        = sub,
+          x           = ~day,
+          y           = ~statistic,
+          customdata  = ~cd,
+          type        = "scatter",
+          mode        = "lines+markers",
+          name        = trace_name,
+          legendgroup = g,
+          line        = list(
+            color = colors[g],
+            width = 2.5
+          ),
+          marker = list(
+            color = colors[g],
+            size  = 7,
+            line  = list(color = "white", width = 1)
+          ),
+          hovertemplate = paste0(
+            "<b>", g, "</b><br>",
+            "Day %{x}<br>",
+            "Statistic: %{y:.3f}<br>",
+            "P-value: %{customdata[0]:.3f}<br>",
+            "Data type: %{customdata[1]}<extra></extra>"
+          )
+        )
+    }
+
+    plotly::layout(
+      p,
+      xaxis = list(
+        title     = "Day",
+        tickvals  = sort(unique(df$day)),
+        gridcolor = "#e8e8e8"
+      ),
+      yaxis = list(
+        title     = "Statistics",
         gridcolor = "#e8e8e8"
       ),
       legend = list(
@@ -197,7 +323,12 @@ app_server <- function(input, output, session) {
 
   # ---- Output: expression table --------------------------------------------
   output$expression_table <- DT::renderDataTable({
-    wide <- build_expression_table(median_data_r())
+    value_col <- if (identical(input$central_stat, "mean")) {
+      "mean_expression"
+    } else {
+      "median_expression"
+    }
+    wide <- build_expression_table(median_data_r(), value_col)
 
     DT::datatable(
       wide,

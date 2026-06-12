@@ -140,13 +140,14 @@ match_genes <- function(data, gene_list) {
   available   <- unique(data$id)
   matched <- gprofiler2::gconvert(gene_list,organism="dmelanogaster")
   query <- unique(matched$target)
+  nms <- tapply(matched$input,matched$target,function(x) x)
   upper_avail <- toupper(available)
   upper_query <- toupper(trimws(query))
 
   matched   <- available[upper_avail %in% upper_query]
   unmatched <- gene_list[!upper_query %in% upper_avail]
 
-  list(matched = matched, unmatched = unmatched)
+  list(matched = matched, unmatched = unmatched, names = nms[matched])
 }
 
 #' Compute per-gene median expression
@@ -157,16 +158,72 @@ match_genes <- function(data, gene_list) {
 #' @import dplyr
 #' @import tidyr
 #'
-#' @return Data frame with columns gene, type, day, median_expression.
+#' @return Data frame with columns gene, type, day, median_expression, sd, and sed.
 #' @noRd
-compute_median_expression <- function(data, genes, annot) {
+compute_median_expression <- function(data, genes, annot, names) {
   df <- data[data$id %in% genes, ]
   df %>%
     tidyr::pivot_longer(-id,names_to="ID",values_to="expression") %>%
     left_join(annot) %>%
     group_by(id,type,day) %>%
     summarise(
-      median_expression = stats::median(expression, na.rm=T)
+      median_expression = stats::median(expression, na.rm=T),
+      mean_expression = base::mean(expression, na.rm=T),
+      sd_expression = stats::sd(expression,na.rm=T),
+      sed_expression = stats::sd(expression,na.rm=T)/sqrt(sum(!is.na(expression))),
+      q1_expression = stats::quantile(expression, 0.25, na.rm=T, names=FALSE),
+      q3_expression = stats::quantile(expression, 0.75, na.rm=T, names=FALSE),
+      datatype = dplyr::first(datatype)
+    ) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(
+      id = ifelse(
+        is.na(names[id]),
+        id,
+        paste0(unname(names[id]), " (", id, ")")
+      )
+    )
+}
+
+#' Compute statistics
+#'
+#' @param expr  vector of expression values
+#' @param grp grouping variable
+#' @import dplyr
+#' @import tidyr
+#'
+#' @return Data frame with statistics and p-value.
+#' @noRd
+safe_stat <- function(expr, grp) {
+  res <- tryCatch(t.test(expr ~ grp), error = function(e) NULL)
+  if (is.null(res)) return(tibble(statistic = NA_real_, p_value = NA_real_))
+  tibble(statistic = res$statistic, p_value = res$p.value)
+}
+
+#' Compute per-gene statistics
+#'
+#' @param data  Long-format expression data frame (pre-filtered to the desired
+#'   types, days, and organ).
+#' @param genes Character vector of gene names (already matched).
+#' @import dplyr
+#' @import tidyr
+#'
+#' @return Data frame with columns gene, type, day, statistics.
+#' @noRd
+compute_stats_expression <- function(data, genes, annot, names) {
+  df <- data[data$id %in% genes, ]
+  df %>%
+    tidyr::pivot_longer(-id,names_to="ID",values_to="expression") %>%
+    left_join(annot) %>%
+    group_by(id,day) %>%
+    reframe(safe_stat(expression, type), datatype = dplyr::first(datatype)) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(
+      id = ifelse(
+        is.na(names[id]),
+        id,
+        paste0(unname(names[id]), " (", id, ")")
+      )
     )
 }
 
@@ -175,8 +232,10 @@ compute_median_expression <- function(data, genes, annot) {
 #' Rows = gene; columns = \code{<type> – Day <day>}.
 #'
 #' @param median_data Output of \code{compute_median_expression()}.
+#' @param value_col Name of the column to tabulate (e.g. "median_expression"
+#'   or "mean_expression").
 #' @noRd
-build_expression_table <- function(median_data) {
+build_expression_table <- function(median_data, value_col = "median_expression") {
   days  <- sort(unique(median_data$day))
   types <- sort(unique(median_data$type))
   genes <- sort(unique(median_data$id))
@@ -187,7 +246,7 @@ build_expression_table <- function(median_data) {
     for (d in days) {
       col_name <- paste0(tp, " – Day ", d)
       vals <- vapply(genes, function(g) {
-        v <- median_data$median_expression[
+        v <- median_data[[value_col]][
           median_data$id == g &
           median_data$type  == tp &
           median_data$day   == d
